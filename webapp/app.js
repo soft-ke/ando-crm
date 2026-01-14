@@ -178,7 +178,7 @@ function isTenure(row) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   parsedCheckin.setHours(0, 0, 0, 0);
-  return parsedCheckin < today;
+  return parsedCheckin <= today;
 }
 
 function sortByCheckinAsc(a, b) {
@@ -234,13 +234,30 @@ function formatLinkCell(value) {
   return `<a class="link" href="${safeUrl}" target="_blank" rel="noreferrer">Open</a>`;
 }
 
+function isNotesOverflowing(value, maxRows) {
+  const raw = String(value ?? "");
+  const normalized = raw.replace(/\r/g, "");
+  const lines = normalized.length ? normalized.split(/\n/).length : 1;
+  return lines > maxRows;
+}
+
+function getNotesRowCount(value, maxRows) {
+  const raw = String(value ?? "");
+  const normalized = raw.replace(/\r/g, "");
+  const lines = normalized.length ? normalized.split(/\n/).length : 1;
+  const clamped = maxRows ? Math.min(lines, maxRows) : lines;
+  return Math.max(clamped, 1);
+}
+
+
 function renderNotesCell(row) {
   const rowId = row.id || "";
   const rowLink = row.link || "";
   const rowName = row.name || "";
   const noteValue = row?.notes ?? "";
   const escapedNote = escapeHtml(noteValue);
-  return `<textarea class="notes-field" rows="5" data-action="notes" data-id="${escapeHtml(rowId)}" data-link="${escapeHtml(rowLink)}" data-name="${escapeHtml(rowName)}" data-initial="${escapedNote}">${escapedNote}</textarea>`;
+  const rows = noteValue ? 4 : 1;
+  return `<textarea class="notes-field" rows="${rows}" data-action="notes" data-id="${escapeHtml(rowId)}" data-link="${escapeHtml(rowLink)}" data-name="${escapeHtml(rowName)}" data-initial="${escapedNote}">${escapedNote}</textarea>`;
 }
 
 function renderStatusCell(row) {
@@ -261,13 +278,14 @@ function renderStatusCell(row) {
     "veto",
     "done"
   ];
+  const selectedValue = options.find(option => normalizeStatus(option) == normalizedCurrent) || options[0];
   const optionMarkup = options
     .map(option => {
       const selected = normalizeStatus(option) === normalizedCurrent ? " selected" : "";
       return `<option value="${escapeHtml(option)}"${selected}>${escapeHtml(option)}</option>`;
     })
     .join("");
-  return `<select class="status-select" data-action="status" data-id="${escapeHtml(rowId)}" data-link="${escapeHtml(rowLink)}" data-name="${escapeHtml(rowName)}">${optionMarkup}</select>`;
+  return `<select class="status-select" data-action="status" data-initial="${escapeHtml(selectedValue)}" data-id="${escapeHtml(rowId)}" data-link="${escapeHtml(rowLink)}" data-name="${escapeHtml(rowName)}">${optionMarkup}</select>`;
 }
 
 function renderTableCell(column, row) {
@@ -283,7 +301,8 @@ function renderTableCell(column, row) {
   return `<td>${formatCell(row[column])}</td>`;
 }
 
-function renderSnoozeTable(tableEl, rows, columns) {
+function renderSnoozeTable(tableEl, rows, columns, options = {}) {
+  const { forceDefault = false } = options;
   const headerCells = columns.map(col => `<th>${escapeHtml(col)}</th>`).join("");
   const actionHeader = "<th>Snooze until</th><th></th>";
   tableEl.querySelector("thead").innerHTML = `<tr>${headerCells}${actionHeader}</tr>`;
@@ -295,7 +314,9 @@ function renderSnoozeTable(tableEl, rows, columns) {
       const rowId = row.id || "";
       const rowLink = row.link || "";
       const rowName = row.name || "";
-      const snoozeValue = toDateInputValue(row?.[SNOOZE_FIELD], defaultSnooze);
+      const snoozeValue = forceDefault
+        ? defaultSnooze
+        : toDateInputValue(row?.[SNOOZE_FIELD], defaultSnooze);
       const snoozeInput = `<input class="snooze-input" type="date" value="${snoozeValue}" />`;
       const snoozeButton = `<button class="snooze-button" data-action="snooze" data-id="${escapeHtml(rowId)}" data-link="${escapeHtml(rowLink)}" data-name="${escapeHtml(rowName)}">Snooze</button>`;
       return `<tr>${cells}<td>${snoozeInput}</td><td>${snoozeButton}</td></tr>`;
@@ -393,18 +414,9 @@ function renderTenureView() {
   tenureCount.textContent = `${rows.length} tenure`;
   tenureCount.style.display = state.activeTab === "tenure" ? "inline" : "none";
 
-  const columns = [
-    "name",
-    "current_company",
-    "current_role",
-    "start_date",
-    "started_at",
-    "loc",
-    "link",
-    SNOOZE_FIELD
-  ].filter(col => state.rows.some(row => row[col] !== undefined));
+  const columns = getActiveColumns();
 
-  renderSnoozeTable(tenureTable, rows, columns);
+  renderSnoozeTable(tenureTable, rows, columns, { forceDefault: true });
 }
 
 function renderSearchView() {
@@ -493,7 +505,7 @@ async function snoozeCandidate({ id, link, name, date }) {
     return;
   }
   setStatus("Snoozing…");
-  let query = supabase.from(SUPABASE_TABLE).update({ [SNOOZE_FIELD]: date });
+  let query = supabase.from(SUPABASE_TABLE).update({ [SNOOZE_FIELD]: date, status: "backburner" });
   if (id) {
     query = query.eq("id", id);
   } else {
@@ -507,7 +519,10 @@ async function snoozeCandidate({ id, link, name, date }) {
     return;
   }
   const row = state.rows.find(item => (id && item.id === id) || (item.link === link && item.name === name));
-  if (row) row[SNOOZE_FIELD] = date;
+  if (row) {
+    row[SNOOZE_FIELD] = date;
+    row.status = "backburner";
+  }
   renderActiveView();
   renderReviewView();
   renderCheckinView();
@@ -518,7 +533,7 @@ async function snoozeCandidate({ id, link, name, date }) {
 async function updateStatus({ id, link, name, status }) {
   if (!id && !link && !name) {
     setStatus("Missing candidate identifiers", "error");
-    return;
+    return false;
   }
   let query = supabase.from(SUPABASE_TABLE).update({ status });
   if (id) {
@@ -530,7 +545,7 @@ async function updateStatus({ id, link, name, status }) {
   if (error) {
     setStatus(error.message, "error");
     console.error(error);
-    return;
+    return false;
   }
   const row = state.rows.find(item => (id && item.id === id) || (item.link === link && item.name === name));
   if (row) row.status = status;
@@ -539,6 +554,7 @@ async function updateStatus({ id, link, name, status }) {
   renderCheckinView();
   renderTenureView();
   setStatus("Status updated");
+  return true;
 }
 
 async function updateNotes({ id, link, name, notes }) {
@@ -605,13 +621,30 @@ function handleSnoozeClick(event) {
 function handleNotesFocus(event) {
   const field = event.target.closest(".notes-field");
   if (!field) return;
-  field.classList.add("expanded");
+  const value = field.value ?? "";
+  if (!value) {
+    field.rows = 1;
+    return;
+  }
+  field.rows = getNotesRowCount(value);
+}
+
+function handleNotesInput(event) {
+  const field = event.target.closest(".notes-field");
+  if (!field) return;
+  const value = field.value ?? "";
+  if (!value) {
+    field.rows = 1;
+    return;
+  }
+  field.rows = getNotesRowCount(value);
 }
 
 function handleNotesBlur(event) {
   const field = event.target.closest(".notes-field");
   if (!field) return;
-  field.classList.remove("expanded");
+  const value = field.value ?? "";
+  field.rows = value ? 4 : 1;
   const initial = field.dataset.initial ?? "";
   const current = field.value ?? "";
   if (current === initial) return;
@@ -629,41 +662,38 @@ reviewTable.addEventListener("click", handleSnoozeClick);
 checkinTable.addEventListener("click", handleSnoozeClick);
 searchTable.addEventListener("click", handleSnoozeClick);
 tenureTable.addEventListener("click", handleSnoozeClick);
-activeGroups.addEventListener("change", event => {
+async function handleStatusChange(event) {
   const select = event.target.closest("[data-action=\"status\"]");
   if (!select) return;
-  updateStatus({
+  const initial = select.dataset.initial || "";
+  if (select.value == initial) return;
+  const ok = await updateStatus({
     id: select.dataset.id,
     link: select.dataset.link,
     name: select.dataset.name,
     status: select.value
   });
-});
-reviewTable.addEventListener("change", event => {
-  const select = event.target.closest("[data-action=\"status\"]");
-  if (!select) return;
-  updateStatus({
-    id: select.dataset.id,
-    link: select.dataset.link,
-    name: select.dataset.name,
-    status: select.value
-  });
-});
-checkinTable.addEventListener("change", event => {
-  const select = event.target.closest("[data-action=\"status\"]");
-  if (!select) return;
-  updateStatus({
-    id: select.dataset.id,
-    link: select.dataset.link,
-    name: select.dataset.name,
-    status: select.value
-  });
-});
+  if (ok) {
+    select.dataset.initial = select.value;
+    return;
+  }
+  select.value = initial;
+}
+
+activeGroups.addEventListener("change", handleStatusChange);
+reviewTable.addEventListener("change", handleStatusChange);
+checkinTable.addEventListener("change", handleStatusChange);
+searchTable.addEventListener("change", handleStatusChange);
 activeGroups.addEventListener("focusin", handleNotesFocus);
 reviewTable.addEventListener("focusin", handleNotesFocus);
 checkinTable.addEventListener("focusin", handleNotesFocus);
 searchTable.addEventListener("focusin", handleNotesFocus);
 tenureTable.addEventListener("focusin", handleNotesFocus);
+activeGroups.addEventListener("input", handleNotesInput);
+reviewTable.addEventListener("input", handleNotesInput);
+checkinTable.addEventListener("input", handleNotesInput);
+searchTable.addEventListener("input", handleNotesInput);
+tenureTable.addEventListener("input", handleNotesInput);
 activeGroups.addEventListener("focusout", handleNotesBlur);
 reviewTable.addEventListener("focusout", handleNotesBlur);
 checkinTable.addEventListener("focusout", handleNotesBlur);

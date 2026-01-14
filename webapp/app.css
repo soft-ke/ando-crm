@@ -310,20 +310,16 @@ select {
 
 .notes-field {
   width: 100%;
-  min-height: 96px;
   padding: 6px 8px;
   border-radius: 6px;
   border: 1px solid var(--border);
   font-family: inherit;
   font-size: 12px;
   line-height: 1.35;
-  resize: vertical;
+  resize: none;
   background: var(--surface-solid);
 }
 
-.notes-field.expanded {
-  min-height: 220px;
-}
 
 .snooze-input {
   width: 120px;
