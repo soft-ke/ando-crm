@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Candidate CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;700&family=Space+Grotesk:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./app.css" />
+  </head>
+  <body>
+    <div class="app compact-header">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow">connected to supabase</p>
+          <h1>Candidates</h1>
+          <p class="subtitle">Ando candidate pipeline</p>
+        </div>
+        <div class="header-actions">
+          <button class="ghost-button" id="refreshBtn" type="button">Refresh</button>
+          <span class="status-pill" id="statusPill">Ready</span>
+        </div>
+      </header>
+
+      <div class="tabs-row">
+        <nav class="tabs" role="tablist">
+          <button class="tab active" type="button" data-tab="active" role="tab">Active</button>
+          <button class="tab" type="button" data-tab="checkin" role="tab">Check-in</button>
+          <button class="tab" type="button" data-tab="review" role="tab">Review</button>
+          <button class="tab" type="button" data-tab="tenure" role="tab">Tenure</button>
+          <button class="tab" type="button" data-tab="search" role="tab">Search</button>
+        </nav>
+        <div class="tabs-meta">
+          <span class="count-text" id="activeCount">Loading…</span>
+          <span class="count-text" id="reviewCount">Loading…</span>
+          <span class="count-text" id="checkinCount">Loading…</span>
+          <span class="count-text" id="tenureCount">Loading…</span>
+          <span class="count-text" id="searchCount">Loading…</span>
+        </div>
+      </div>
+
+      <section class="panel" id="activePanel" role="tabpanel">
+        <div class="panel-card wide">
+          <div id="activeGroups"></div>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="reviewPanel" role="tabpanel">
+        <div class="panel-card wide">
+          <div class="table-wrap">
+            <table id="reviewTable">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="checkinPanel" role="tabpanel">
+        <div class="panel-card wide">
+          <div class="table-wrap">
+            <table id="checkinTable">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="tenurePanel" role="tabpanel">
+        <div class="panel-card wide">
+          <div class="table-wrap">
+            <table id="tenureTable">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="searchPanel" role="tabpanel">
+        <div class="panel-card">
+          <div class="debug-controls">
+            <label for="searchInput">Search by name</label>
+            <input id="searchInput" type="text" placeholder="Type a name and press Enter" />
+          </div>
+        </div>
+        <div class="panel-card wide">
+          <div class="table-wrap">
+            <table id="searchTable">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
