@@ -1,5 +1,5 @@
-export const SUPABASE_PROJECT_REF = "neiwotatvnsosvytyssb";
-export const SUPABASE_ANON_KEY = "sb_publishable_OGvFE2o_4sajbDg5sFoQ6Q_7ksyA5DR";
+export const SUPABASE_PROJECT_REF = "PROJECT REF";
+export const SUPABASE_ANON_KEY = "PROJECT ANON";
 export const SUPABASE_TABLE = "crm";
 export const SNOOZE_FIELD = "check_in";
 export const ACTIVE_STATUS_LIST = [
